@@ -5,21 +5,23 @@ export async function POST(
     request: Request,
     { params }: { params: Promise<{ webhookId: string, webhookToken: string }> }
 ) {
-    const webhookId = (await params).webhookId // 'a', 'b', or 'c'
-    const webhookToken = (await params).webhookToken // '123
+    // Extract the webhookId and webhookToken from the params
+    const webhookId = (await params).webhookId;
+    const webhookToken = (await params).webhookToken;
 
-    console.log(webhookId, webhookToken)
-    
-    const body = await request.json()
+    console.log(`Webhook ID: ${webhookId}, Webhook Token: ${webhookToken}`);
 
-    // add guard statements for body content and webhookId/webhookToken
-    if (!body.content) {
-        return new Response(JSON.stringify({ error: 'Content is required' }), {
+    // Parse the incoming JSON body
+    const body = await request.json();
+
+    // Validate content and webhook ID/token
+    if (!body.content && !body.embeds) {
+        return new Response(JSON.stringify({ error: 'Content or embeds is required' }), {
             status: 400,
             headers: {
                 'content-type': 'application/json',
             },
-        })
+        });
     }
 
     if (!webhookId || !webhookToken) {
@@ -28,20 +30,36 @@ export async function POST(
             headers: {
                 'content-type': 'application/json',
             },
-        })
+        });
     }
 
-    const discordWebhookUrl = `https://discord.com/api/webhooks/${webhookId}/${webhookToken}`
+    // Construct the Discord webhook URL
+    const discordWebhookUrl = `https://discord.com/api/webhooks/${webhookId}/${webhookToken}`;
     
-    const res = await axios.post(discordWebhookUrl, body, {
-        headers: {
-            'Content-Type': 'application/json',
-        },
-    })
-    
-    return new Response(JSON.stringify(res.data), {
-        headers: {
-            'content-type': 'application/json',
-        },
-    })
+    try {
+        // Attempt to send the request to Discord
+        const res = await axios.post(discordWebhookUrl, body, {
+            headers: {
+                'Content-Type': 'application/json',
+            },
+        });
+
+        // If successful, return the Discord response data
+        console.log('Webhook sent successfully:', res.data);
+        return new Response(JSON.stringify(res.data), {
+            status: 200,
+            headers: {
+                'content-type': 'application/json',
+            },
+        });
+    } catch (error) {
+        // If the request to Discord fails, log the error
+        console.error('Failed to send webhook:', error);
+        return new Response(JSON.stringify({ error: 'Failed to send webhook' }), {
+            status: 500,
+            headers: {
+                'content-type': 'application/json',
+            },
+        });
+    }
 }
